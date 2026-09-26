@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roth Conversion Strategy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,380;0,6..72,500;1,6..72,420&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --paper:#FCFBF9;
+  --panel:#FFFFFF;
+  --ink:#111412;
+  --ink-soft:#5B5F58;
+  --ink-faint:#96988F;
+  --line:#E7E4DC;
+  --green:#1E5C46;
+  --green-soft:#EDF3EF;
+  --amber:#9C6B33;
+  --amber-soft:#F5ECDF;
+
+  box-sizing:border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111412; --panel:#171B18; --ink:#EEEEE9; --ink-soft:#ABAFA6; --ink-faint:#6E7268;
+    --line:#262B26; --green:#57A585; --green-soft:#1C2620; --amber:#CBA06A; --amber-soft:#25201A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111412; --panel:#171B18; --ink:#EEEEE9; --ink-soft:#ABAFA6; --ink-faint:#6E7268;
+  --line:#262B26; --green:#57A585; --green-soft:#1C2620; --amber:#CBA06A; --amber-soft:#25201A;
+}
+html{ scroll-behavior:smooth; scroll-padding-top: env(safe-area-inset-top,0px); }
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'Inter',ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-feature-settings:'tnum' 1; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+.tnum{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1; }
+::selection{ background:var(--green); color:#fff; }
+p{margin:0;}
+.serif{ font-family:'Newsreader',Georgia,serif; font-style:italic; font-weight:420; }
+
+.wrap{ max-width:980px; margin:0 auto; padding:0 28px; }
+.narrow{ max-width:620px; }
+@media (max-width:640px){ .wrap{ padding:0 22px; } }
+
+nav{
+  position:sticky; top:0; z-index:30;
+  padding: calc(20px + env(safe-area-inset-top,0px)) 0 18px;
+}
+nav .wrap{ display:flex; justify-content:space-between; align-items:center; }
+.mark{ font-size:14px; font-weight:600; letter-spacing:-0.01em; }
+.mark span{ color:var(--ink-faint); font-weight:400; }
+
+section{ padding:100px 0; }
+section.tight{ padding:64px 0; }
+.hr{ height:1px; background:var(--line); }
+@media (max-width:640px){ section{ padding:64px 0; } }
+
+h1,h2,h3{ margin:0; letter-spacing:-0.015em; line-height:1.06; }
+.eyebrow{ font-size:13px; color:var(--ink-faint); margin-bottom:18px; }
+
+/* ---- hero ---- */
+.hero h1{ font-size:clamp(42px,7vw,76px); max-width:14ch; }
+.hero .sub{ margin-top:22px; font-size:19px; color:var(--ink-soft); max-width:44ch; line-height:1.55; }
+
+.twopath{ margin-top:76px; display:grid; grid-template-columns:1fr 1fr; gap:56px; }
+@media (max-width:760px){ .twopath{ grid-template-columns:1fr; gap:48px; } }
+.pathcol .tag{ font-size:13px; color:var(--ink-faint); }
+.pathcol .big{ margin-top:10px; font-size:44px; font-weight:600; letter-spacing:-0.02em; }
+.pathcol .sub2{ font-size:13.5px; color:var(--ink-faint); margin-top:4px; }
+.pathstack{ margin-top:30px; display:flex; flex-direction:column; }
+.prow{ padding:14px 0; border-top:1px solid var(--line); font-size:14.5px; color:var(--ink-soft); display:flex; justify-content:space-between; gap:14px; opacity:0; transform:translateY(6px); animation:riseIn .5s ease forwards; }
+.prow:nth-child(1){animation-delay:.05s;} .prow:nth-child(2){animation-delay:.2s;} .prow:nth-child(3){animation-delay:.35s;} .prow:nth-child(4){animation-delay:.5s;} .prow:nth-child(5){animation-delay:.65s;}
+@keyframes riseIn{ to{ opacity:1; transform:none; } }
+.prow .r{ font-weight:600; white-space:nowrap; }
+.pathcol.roth .prow .r{ color:var(--green); }
+.result-line-final{ margin-top:8px; padding-top:18px; border-top:1px solid var(--ink); font-size:17px; font-weight:600; display:flex; justify-content:space-between; }
+.rail{ height:3px; background:var(--line); border-radius:99px; margin-top:26px; overflow:hidden; position:relative; }
+.rail i{ position:absolute; inset:0; width:0; background:var(--ink-faint); border-radius:99px; animation:fill 1.4s .2s cubic-bezier(.2,.8,.2,1) forwards; }
+.pathcol.roth .rail i{ background:var(--green); }
+@keyframes fill{ to{ width:100%; } }
+
+/* ---- master comparison table ---- */
+.mastertable{ margin-top:60px; width:100%; border-collapse:collapse; }
+.mastertable caption{ caption-side:top; text-align:left; font-size:13px; color:var(--ink-faint); margin-bottom:16px; }
+.mastertable th, .mastertable td{ padding:15px 14px; font-size:14.5px; text-align:right; border-top:1px solid var(--line); }
+.mastertable th:first-child, .mastertable td:first-child{ text-align:left; color:var(--ink-soft); padding-left:0; }
+.mastertable thead th{ border-top:none; color:var(--ink-faint); font-size:13px; font-weight:500; padding-bottom:12px; }
+.mastertable thead th.trad-h, .mastertable thead th.roth-h{ display:table-cell; }
+.mastertable td.tnum, .mastertable th.tnum{ font-variant-numeric:tabular-nums; }
+.mastertable tbody td{ font-weight:500; }
+.mastertable tr.final td{ border-top:1px solid var(--ink); padding-top:20px; padding-bottom:20px; font-size:19px; font-weight:700; }
+.mastertable tr.final td.roth-col{ color:var(--green); }
+.colflag{ display:inline-flex; align-items:center; gap:7px; }
+.colflag .swatch{ width:8px; height:8px; border-radius:50%; background:var(--ink-faint); }
+.colflag .swatch.roth{ background:var(--green); }
+@media (max-width:640px){
+  .mastertable{ font-size:13px; }
+  .mastertable th, .mastertable td{ padding:12px 8px; }
+  .mastertable tr.final td{ font-size:16px; }
+}
+
+/* ---- bridge / dramatic comparison ---- */
+.bridge{ margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:56px; }
+@media (max-width:760px){ .bridge{ grid-template-columns:1fr; gap:40px; } }
+.bcol .line{ display:flex; justify-content:space-between; padding:13px 0; border-top:1px solid var(--line); font-size:15px; color:var(--ink-soft); }
+.bcol .line:first-child{ border-top:none; }
+.bcol .line .v{ font-weight:500; color:var(--ink); }
+.bcol .final{ margin-top:6px; padding-top:18px; border-top:1px solid var(--ink); display:flex; justify-content:space-between; align-items:baseline; }
+.bcol .final .v{ font-size:32px; font-weight:600; letter-spacing:-0.01em; }
+.bcol.roth .final .v{ color:var(--green); }
+.note{ margin-top:40px; font-size:16px; color:var(--ink-soft); }
+.note strong{ color:var(--ink); font-weight:600; }
+.caveat{ margin-top:14px; font-size:13.5px; color:var(--ink-faint); }
+
+/* ---- why the year matters ---- */
+.ratepair{ margin-top:56px; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border-radius:14px; overflow:hidden; }
+@media (max-width:640px){ .ratepair{ grid-template-columns:1fr; } }
+.ratebox{ background:var(--panel); padding:36px 32px; }
+.ratebox .tag{ font-size:13px; color:var(--ink-faint); }
+.ratebox .pct{ margin-top:14px; font-size:56px; font-weight:600; letter-spacing:-0.02em; }
+.ratebox .impact{ margin-top:18px; font-size:15px; color:var(--ink-soft); }
+.ratebox.low .pct{ color:var(--green); }
+
+/* ---- calculator ---- */
+.calc{ margin-top:20px; }
+.calc-controls{ display:grid; grid-template-columns:1fr 1fr; gap:30px 44px; }
+@media (max-width:640px){ .calc-controls{ grid-template-columns:1fr; } }
+.ctrl-head{ display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px; }
+.ctrl-head .label{ color:var(--ink-soft); }
+.ctrl-head .val{ font-weight:600; }
+input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:2px; background:var(--line); border-radius:2px; }
+input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--panel); border:2px solid var(--green); cursor:pointer; }
+input[type=range]::-moz-range-thumb{ width:15px; height:15px; border-radius:50%; background:var(--panel); border:2px solid var(--green); cursor:pointer; }
+
+.outtable{ margin-top:64px; border-top:1px solid var(--ink); }
+.otrow{ display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-top:1px solid var(--line); }
+.otrow:first-child{ border-top:none; }
+.otrow.head{ border-top:none; }
+.otrow .oc{ padding:18px 16px; font-size:14.5px; }
+.otrow .oc.rowlabel{ padding-left:0; color:var(--ink-soft); }
+.otrow.head .oc{ padding-top:0; padding-bottom:16px; font-size:13px; color:var(--ink-faint); font-weight:500; }
+.otrow.head .oc.colhead{ display:flex; align-items:center; gap:8px; }
+.swatch{ width:8px; height:8px; border-radius:50%; background:var(--ink-faint); flex:none; }
+.swatch.roth{ background:var(--green); }
+.otrow .num{ font-size:22px; font-weight:600; letter-spacing:-0.01em; }
+.otrow.final{ border-top:1px solid var(--ink); }
+.otrow.final .oc{ padding-top:22px; padding-bottom:22px; }
+.otrow.final .num{ font-size:28px; }
+.otrow .num.roth{ color:var(--green); }
+@media (max-width:560px){
+  .otrow{ grid-template-columns:1fr 1fr 1fr; }
+  .otrow .oc{ padding:16px 8px; }
+  .otrow .oc.rowlabel{ font-size:13px; padding-left:0; }
+}
+
+.reset-row{ margin-top:44px; display:flex; justify-content:flex-end; }
+.btn{ font-size:13.5px; font-weight:500; color:var(--ink-soft); background:none; border:1px solid var(--line); border-radius:99px; padding:9px 18px; cursor:pointer; }
+.btn:hover{ border-color:var(--ink-faint); color:var(--ink); }
+
+/* ---- flow ---- */
+.flowgrid{ margin-top:60px; display:flex; flex-direction:column; align-items:center; gap:0; }
+.fnode{ font-size:15px; padding:16px 26px; border:1px solid var(--line); border-radius:99px; background:var(--panel); text-align:center; }
+.fnode.strong{ border-color:var(--green); background:var(--green-soft); color:var(--green); font-weight:600; }
+.farrow{ height:34px; width:1px; background:var(--line); }
+.fsplit{ margin-top:40px; padding-top:32px; border-top:1px solid var(--line); text-align:center; }
+.fsplit .tag{ font-size:13px; color:var(--ink-faint); }
+
+/* ---- withholding ---- */
+.wgrid{ margin-top:56px; display:grid; grid-template-columns:1fr 1fr; gap:40px; }
+@media (max-width:700px){ .wgrid{ grid-template-columns:1fr; } }
+.wcol .tag{ font-size:13px; color:var(--ink-faint); }
+.wcol .amt{ margin-top:10px; font-size:34px; font-weight:600; letter-spacing:-0.02em; }
+.wcol p.detail{ margin-top:16px; font-size:14.5px; color:var(--ink-soft); line-height:1.6; }
+.wcol.warn .amt{ color:var(--amber); }
+.wneq{ margin-top:48px; text-align:center; font-size:17px; font-weight:500; }
+
+/* ---- three columns ---- */
+.threecol{ margin-top:56px; display:grid; grid-template-columns:repeat(3,1fr); gap:36px; }
+@media (max-width:760px){ .threecol{ grid-template-columns:1fr; } }
+.tc h4{ font-size:16px; font-weight:600; margin:0 0 10px; }
+.tc p{ font-size:14.5px; color:var(--ink-soft); line-height:1.6; }
+.tc .tag{ font-size:12.5px; color:var(--ink-faint); margin-bottom:10px; }
+
+/* ---- steps ---- */
+.stepsimple{ margin-top:56px; display:flex; flex-direction:column; }
+.srow{ display:grid; grid-template-columns:60px 1fr; gap:24px; padding:26px 0; border-top:1px solid var(--line); }
+.srow:first-child{ border-top:none; }
+.srow .sn{ font-size:15px; color:var(--ink-faint); font-weight:500; }
+.srow h4{ font-size:17px; font-weight:600; margin:0 0 6px; }
+.srow p{ font-size:14.5px; color:var(--ink-soft); line-height:1.6; }
+
+/* ---- chart ---- */
+#chart{ width:100%; height:auto; display:block; margin-top:50px; }
+
+/* ---- footer ---- */
+footer{ padding:70px 0 calc(70px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line); }
+.srclinks{ list-style:none; margin:20px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.srclinks a{ font-size:14px; color:var(--green); text-decoration:none; border-bottom:1px solid transparent; }
+.srclinks a:hover{ border-bottom-color:var(--green); }
+.disclaimer{ margin-top:32px; font-size:12.5px; color:var(--ink-faint); max-width:640px; line-height:1.7; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap"><div class="mark">Roth Conversion <span>Strategy</span></div></div></nav>
+
+<!-- 1. HERO -->
+<section class="hero">
+  <div class="wrap">
+    <h1>Choose when to pay the tax.</h1>
+    <p class="sub">A lower-income year can create an opportunity to convert pre-tax retirement money to Roth at a lower marginal tax rate.</p>
+
+    <table class="mastertable">
+      <caption>Assumes $12,400 in total starting resources — deployed differently under each strategy</caption>
+      <thead>
+        <tr>
+          <th></th>
+          <th class="trad-h"><span class="colflag"><span class="swatch"></span>Leave it Traditional</span></th>
+          <th class="roth-h"><span class="colflag"><span class="swatch roth"></span>Convert to Roth</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Starting cash committed</td><td class="tnum">$10,000</td><td class="tnum roth-col">$12,400</td></tr>
+        <tr><td>Pre‑tax 401(k) balance converted</td><td class="tnum">—</td><td class="tnum roth-col">$10,000</td></tr>
+        <tr><td>Conversion tax, paid today from outside cash</td><td class="tnum">$0</td><td class="tnum roth-col">$2,400</td></tr>
+        <tr><td>Amount left invested</td><td class="tnum">$10,000</td><td class="tnum roth-col">$10,000</td></tr>
+        <tr><td>Value after 30 years at 7%</td><td class="tnum">$76,123</td><td class="tnum roth-col">$76,123</td></tr>
+        <tr><td>Tax at retirement, illustrative 28% / qualified</td><td class="tnum">−$21,314</td><td class="tnum roth-col">$0</td></tr>
+        <tr class="final"><td>Modeled spendable value</td><td class="tnum">$54,809</td><td class="tnum roth-col">$76,123</td></tr>
+      </tbody>
+    </table>
+    <p class="caveat">Traditional only requires the $10,000 already inside the 401(k). Roth requires $12,400 total — the same $10,000, plus $2,400 of outside cash spent today to cover the conversion tax, so the full $10,000 keeps compounding untaxed. The 28% future rate is an assumption, not a prediction.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 2. THE END RESULT -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">The result</div>
+    <div class="bridge">
+      <div class="bcol trad">
+        <div class="line"><span>Gross value</span><span class="v tnum">$76,123</span></div>
+        <div class="line"><span>Illustrative tax</span><span class="v tnum">−$21,314</span></div>
+        <div class="final"><span>Modeled spendable value</span><span class="v tnum">$54,809</span></div>
+      </div>
+      <div class="bcol roth">
+        <div class="line"><span>Qualified balance</span><span class="v tnum">$76,123</span></div>
+        <div class="line"><span>Tax on qualified distribution</span><span class="v tnum">−$0</span></div>
+        <div class="final"><span>Modeled spendable value</span><span class="v tnum">$76,123</span></div>
+      </div>
+    </div>
+    <p class="note"><strong>Same $10,000 invested. Same return. Same 30 years.</strong> Different timing and treatment of taxes.</p>
+    <p class="caveat">This isn't free — the Roth path required $2,400 of additional outside cash today. Neither path is universally better.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 3. WHY THE YEAR MATTERS -->
+<section>
+  <div class="wrap narrow">
+    <div class="eyebrow">Why the conversion year matters</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px); max-width:18ch;">The same conversion can cost very different amounts to execute.</h2>
+  </div>
+  <div class="wrap">
+    <div class="ratepair">
+      <div class="ratebox">
+        <div class="tag">Normal marginal rate</div>
+        <div class="pct tnum">24%</div>
+        <div class="impact">$10,000 converted → <strong class="tnum">$2,400</strong> tax today</div>
+      </div>
+      <div class="ratebox low">
+        <div class="tag">Lower-income-year marginal rate</div>
+        <div class="pct tnum">12%</div>
+        <div class="impact">$10,000 converted → <strong class="tnum">$1,200</strong> tax today</div>
+      </div>
+    </div>
+    <p class="note" style="max-width:60ch;">The strategy is to consider recognizing taxable conversion income during years when taxable income leaves room in relatively lower tax brackets.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 4. CALCULATOR -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Try it</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px);">Model your own numbers.</h2>
+
+    <div class="calc">
+      <div class="calc-controls" style="margin-top:46px;">
+        <div>
+          <div class="ctrl-head"><span class="label">Amount converted</span><span class="val tnum" id="v_amount">$10,000</span></div>
+          <input type="range" id="amount" min="1000" max="250000" step="1000" value="10000">
+        </div>
+        <div>
+          <div class="ctrl-head"><span class="label">Conversion tax assumption</span><span class="val tnum" id="v_conv">24%</span></div>
+          <input type="range" id="conv" min="10" max="40" step="1" value="24">
+        </div>
+        <div>
+          <div class="ctrl-head"><span class="label">Years invested</span><span class="val tnum" id="v_years">30</span></div>
+          <input type="range" id="years" min="1" max="45" step="1" value="30">
+        </div>
+        <div>
+          <div class="ctrl-head"><span class="label">Annual return</span><span class="val tnum" id="v_ret">7%</span></div>
+          <input type="range" id="ret" min="1" max="12" step="0.5" value="7">
+        </div>
+        <div style="grid-column:1/-1; max-width:calc(50% - 22px);">
+          <div class="ctrl-head"><span class="label">Traditional retirement tax assumption</span><span class="val tnum" id="v_trad">28%</span></div>
+          <input type="range" id="trad" min="0" max="45" step="1" value="28">
+        </div>
+      </div>
+
+      <div class="outtable">
+        <div class="otrow head">
+          <div class="oc"></div>
+          <div class="oc colhead"><span class="swatch"></span>Traditional</div>
+          <div class="oc colhead"><span class="swatch roth"></span>Roth</div>
+        </div>
+        <div class="otrow">
+          <div class="oc rowlabel">Starting cash committed</div>
+          <div class="oc num tnum" id="o_start_trad">$10,000</div>
+          <div class="oc num tnum roth" id="o_start_roth">$12,400</div>
+        </div>
+        <div class="otrow">
+          <div class="oc rowlabel">Tax paid today to convert</div>
+          <div class="oc num tnum">$0</div>
+          <div class="oc num tnum roth" id="o_conv">$2,400</div>
+        </div>
+        <div class="otrow">
+          <div class="oc rowlabel">Future account value</div>
+          <div class="oc num tnum" id="o_fv_trad">$76,123</div>
+          <div class="oc num tnum roth" id="o_fv_roth">$76,123</div>
+        </div>
+        <div class="otrow final">
+          <div class="oc rowlabel">Modeled after‑tax / qualified value</div>
+          <div class="oc num tnum" id="o_trad">$54,809</div>
+          <div class="oc num tnum roth" id="o_roth">$76,123</div>
+        </div>
+      </div>
+      <div class="reset-row"><button class="btn" id="resetBtn">Reset example</button></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 5. HOW TO MOVE THE MONEY -->
+<section>
+  <div class="wrap narrow">
+    <div class="eyebrow">Mechanics</div>
+    <h2 style="font-size:clamp(28px,4vw,40px); max-width:14ch;">Convert it. Don't cash it out.</h2>
+  </div>
+  <div class="wrap">
+    <div class="flowgrid">
+      <div class="fnode tnum">Traditional 401(k) — $10,000</div>
+      <div class="farrow"></div>
+      <div class="fnode">Plan administrator</div>
+      <div class="farrow"></div>
+      <div class="fnode strong">Direct Roth rollover / conversion</div>
+      <div class="farrow"></div>
+      <div class="fnode tnum strong">Roth destination — $10,000</div>
+    </div>
+    <div class="fsplit">
+      <div class="tag">Separately</div>
+      <div class="flowgrid" style="margin-top:24px;">
+        <div class="fnode">Outside cash</div>
+        <div class="farrow"></div>
+        <div class="fnode">Conversion-related tax liability</div>
+      </div>
+    </div>
+    <p class="note" style="text-align:center; margin-top:40px;">The retirement dollars are never sent to the investor's checking account.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 6. WITHHOLDING -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Keep this simple</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px); max-width:16ch;">Direct rollover vs. paid to you.</h2>
+
+    <div class="wgrid">
+      <div class="wcol">
+        <div class="tag">Direct rollover</div>
+        <div class="amt tnum">$10,000</div>
+        <p class="detail">Moves directly to the eligible retirement destination. Mandatory 20% rollover withholding generally does not apply — the full $10,000 can move to the destination.</p>
+      </div>
+      <div class="wcol warn">
+        <div class="tag">Paid to you</div>
+        <div class="amt tnum">$8,000</div>
+        <p class="detail">Certain eligible rollover distributions paid to the participant are generally subject to 20% mandatory federal withholding. To complete a full $10,000 rollover, the withheld amount generally must be replaced from other funds within the applicable rollover period.</p>
+      </div>
+    </div>
+    <div class="wneq">Withholding is not the same thing as a tax or a penalty.</div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 7. ROLLOVER != CASH WITHDRAWAL -->
+<section>
+  <div class="wrap narrow">
+    <div class="eyebrow">Getting this right</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px);">Rollover ≠ early cash withdrawal.</h2>
+  </div>
+  <div class="wrap">
+    <div class="threecol">
+      <div class="tc"><div class="tag">Income tax</div><h4>Taxable conversion income</h4><p>A pre‑tax → Roth conversion generally creates taxable income.</p></div>
+      <div class="tc"><div class="tag">Withholding</div><h4>A prepayment mechanism</h4><p>Certain distributions paid to the participant can trigger mandatory 20% withholding.</p></div>
+      <div class="tc"><div class="tag">10% additional tax</div><h4>A separate, narrower rule</h4><p>The 10% additional tax applies to certain early distributions — not to a properly structured conversion.</p></div>
+    </div>
+    <p class="caveat" style="margin-top:36px; max-width:64ch;">A properly executed eligible rollover or conversion should not be treated as an ordinary cash withdrawal simply because pre‑tax assets are moving to Roth. Later Roth distributions still have their own qualification and five‑year rules — Roth money is not automatically available penalty‑free the moment it converts.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 8. STEPS -->
+<section>
+  <div class="wrap narrow">
+    <div class="eyebrow">In practice</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px);">How it can work.</h2>
+  </div>
+  <div class="wrap">
+    <div class="stepsimple">
+      <div class="srow"><div class="sn">01</div><div><h4>Check the plan</h4><p>Ask the 401(k) administrator whether the plan permits an in‑plan Roth rollover or an eligible direct rollover to a Roth IRA.</p></div></div>
+      <div class="srow"><div class="sn">02</div><div><h4>Choose the conversion amount</h4><p>Consider taxable income and the tax brackets the conversion would affect.</p></div></div>
+      <div class="srow"><div class="sn">03</div><div><h4>Request a direct transaction</h4><p>Request the applicable direct Roth rollover/conversion — not a distribution paid to your personal bank account.</p></div></div>
+      <div class="srow"><div class="sn">04</div><div><h4>Keep the retirement money invested</h4><p><span class="tnum">$10,000 Traditional → $10,000 Roth.</span> The full amount continues to compound.</p></div></div>
+      <div class="srow"><div class="sn">05</div><div><h4>Handle the tax separately</h4><p>The previously untaxed amount converted generally becomes taxable income. Use outside funds for the tax rather than reducing the amount remaining invested.</p></div></div>
+    </div>
+    <p class="caveat" style="margin-top:20px;">Plan rules vary. Confirm available options with the plan administrator before initiating a transaction.</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="hr"></div></div>
+
+<!-- 9. CHART -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">One chart</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px); max-width:20ch;">The investments didn't grow differently. The modeled tax treatment did.</h2>
+    <svg id="chart" viewBox="0 0 900 360" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</section>
+
+<!-- 10. SOURCES -->
+<footer>
+  <div class="wrap">
+    <div class="eyebrow">IRS sources &amp; methodology</div>
+    <ul class="srclinks">
+      <li><a href="https://www.irs.gov/retirement-plans/plan-participant-employee/rollovers-of-retirement-plan-and-ira-distributions" target="_blank" rel="noopener">IRS — Rollovers of Retirement Plan and IRA Distributions</a></li>
+      <li><a href="https://www.irs.gov/taxtopics/tc413" target="_blank" rel="noopener">IRS — Topic No. 413: Rollovers From Retirement Plans</a></li>
+      <li><a href="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-designated-roth-account" target="_blank" rel="noopener">IRS — Designated Roth Accounts</a></li>
+    </ul>
+    <p class="disclaimer">This website provides an educational illustration, not individualized tax, legal, or investment advice. Tax treatment depends on individual circumstances, plan rules, applicable law, and the nature and timing of distributions.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var fmt = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0});
+  function money(n){ return fmt.format(Math.round(n)); }
+  function fv(p,r,n){ return p * Math.pow(1+r/100, n); }
+
+  var defaults = { amount:10000, conv:24, years:30, ret:7, trad:28 };
+  var state = Object.assign({}, defaults);
+  var ids = ['amount','conv','years','ret','trad'];
+  var inputs = {}; ids.forEach(function(id){ inputs[id] = document.getElementById(id); });
+
+  function render(){
+    var f = fv(state.amount, state.ret, state.years);
+    var convTax = state.amount * state.conv/100;
+    var tradTax = f * state.trad/100;
+    var tradAT = f - tradTax;
+    var rothAT = f;
+
+    document.getElementById('v_amount').textContent = money(state.amount);
+    document.getElementById('v_conv').textContent = state.conv + '%';
+    document.getElementById('v_years').textContent = state.years;
+    document.getElementById('v_ret').textContent = state.ret + '%';
+    document.getElementById('v_trad').textContent = state.trad + '%';
+
+    document.getElementById('o_start_trad').textContent = money(state.amount);
+    document.getElementById('o_start_roth').textContent = money(state.amount + convTax);
+    document.getElementById('o_conv').textContent = money(convTax);
+    document.getElementById('o_fv_trad').textContent = money(f);
+    document.getElementById('o_fv_roth').textContent = money(f);
+    document.getElementById('o_trad').textContent = money(tradAT);
+    document.getElementById('o_roth').textContent = money(rothAT);
+
+    drawChart(f, tradAT, rothAT, tradTax);
+  }
+
+  ids.forEach(function(id){
+    inputs[id].addEventListener('input', function(){
+      state[id] = parseFloat(this.value);
+      render();
+    });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    state = Object.assign({}, defaults);
+    ids.forEach(function(id){ inputs[id].value = state[id]; });
+    render();
+  });
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var chart = document.getElementById('chart');
+  function el(tag, attrs){ var e = document.createElementNS(svgNS, tag); for(var k in attrs){ e.setAttribute(k, attrs[k]); } return e; }
+
+  function drawChart(gross, tradAT, rothAT, tradTax){
+    chart.innerHTML = '';
+    var W=900,H=360, padL=54, padR=140, padT=20, padB=36;
+    var plotW=W-padL-padR, plotH=H-padT-padB;
+    var years = state.years;
+    var maxVal = gross * 1.1;
+
+    for(var g=0; g<=3; g++){
+      var y = padT + plotH - (g/3)*plotH;
+      chart.appendChild(el('line',{x1:padL,y1:y,x2:padL+plotW,y2:y,stroke:'var(--line)','stroke-width':1}));
+    }
+
+    var pts=[]; var n=40;
+    for(var i=0;i<=n;i++){
+      var yr=(years/n)*i;
+      var v=fv(state.amount, state.ret, yr);
+      var x=padL+(yr/years)*plotW;
+      var y=padT+plotH-(v/maxVal)*plotH;
+      pts.push([x,y]);
+    }
+    var d = pts.map(function(p,i){ return (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' ');
+    chart.appendChild(el('path',{d:d, fill:'none', stroke:'var(--ink-faint)', 'stroke-width':2.5}));
+
+    var xEnd = padL+plotW;
+    function yFor(v){ return padT+plotH-(v/maxVal)*plotH; }
+
+    chart.appendChild(el('circle',{cx:xEnd,cy:yFor(gross),r:4,fill:'var(--ink-faint)'}));
+    chart.appendChild(el('circle',{cx:xEnd,cy:yFor(tradAT),r:4,fill:'var(--ink-soft)'}));
+    chart.appendChild(el('circle',{cx:xEnd,cy:yFor(rothAT),r:4,fill:'var(--green)'}));
+
+    function label(v, main, sub, color){
+      var t1 = el('text',{x:xEnd+12, y:yFor(v)-2, 'font-size':13, 'font-weight':600, fill:color, 'font-family':'Inter,sans-serif'});
+      t1.textContent = main;
+      chart.appendChild(t1);
+      var t2 = el('text',{x:xEnd+12, y:yFor(v)+14, 'font-size':11, fill:'var(--ink-faint)', 'font-family':'Inter,sans-serif'});
+      t2.textContent = sub;
+      chart.appendChild(t2);
+    }
+    label(gross, money(gross), 'gross', 'var(--ink-faint)');
+    label(tradAT, money(tradAT), 'Traditional after-tax', 'var(--ink-soft)');
+    label(rothAT, money(rothAT), 'Roth qualified', 'var(--green)');
+
+    [0, years].forEach(function(yr){
+      var x = padL+(yr/years)*plotW;
+      var t = el('text',{x:x, y:H-12, 'text-anchor': yr===0?'start':'end', 'font-size':11, fill:'var(--ink-faint)', 'font-family':'Inter,sans-serif'});
+      t.textContent = 'Year ' + yr;
+      chart.appendChild(t);
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
